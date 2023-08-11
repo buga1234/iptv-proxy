@@ -24,7 +24,7 @@ archives:
 
 release:
   github:
-    owner: pierre-emmanuelJ
+    owner: romaxa55
     name: iptv-proxy
   draft: false
 
