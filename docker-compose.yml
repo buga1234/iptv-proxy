@@ -11,7 +11,6 @@ services:
     restart: on-failure
     env_file: .env
     environment:
-      GIN_MODE: release
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
     labels:
