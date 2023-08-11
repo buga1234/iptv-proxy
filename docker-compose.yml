@@ -22,7 +22,7 @@ services:
       - traefik.http.routers.iptv-proxy.rule=Host(`iptv.roshamagin.site`)
       - traefik.http.routers.iptv-proxy.entrypoints=websecure
       - traefik.http.routers.iptv-proxy.tls.certresolver=myresolver
-      - traefik.http.services.iptv-proxy.loadbalancer.server.port=443
+      - traefik.http.services.iptv-proxy.loadbalancer.server.port=8080
 
 networks:
   public:
