@@ -10,6 +10,8 @@ services:
     container_name: iptv-proxy
     restart: on-failure
     env_file: .env
+    ports:
+      - 8080:8080
     environment:
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
