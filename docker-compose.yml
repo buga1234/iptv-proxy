@@ -2,9 +2,9 @@ version: "3"
 services:
   iptv-proxy:
     image: ghcr.io/romaxa55/iptv-proxy/iptv-proxy:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
     volumes:
       - ./iptv:/root/iptv
     container_name: iptv-proxy
