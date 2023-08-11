@@ -13,7 +13,7 @@ services:
     environment:
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
-    networks: public
+    networks: [public]
     labels:
       - traefik.enable=true
       - traefik.http.routers.iptv-proxy.tls=true
