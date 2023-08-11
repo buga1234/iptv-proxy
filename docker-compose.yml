@@ -13,6 +13,7 @@ services:
     environment:
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
+    networks: public
     labels:
       - traefik.enable=true
       - traefik.http.routers.iptv-proxy.tls=true
@@ -20,3 +21,7 @@ services:
       - traefik.http.routers.iptv-proxy.entrypoints=websecure
       - traefik.http.routers.iptv-proxy.tls.certresolver=myresolver
       - traefik.http.services.iptv-proxy.loadbalancer.server.port=443
+
+networks:
+  public:
+     external: true
