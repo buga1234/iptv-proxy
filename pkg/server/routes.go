@@ -81,8 +81,11 @@ func (c *Config) m3uRoutes(r *gin.RouterGroup) {
 
 		if strings.HasSuffix(track.URI, ".m3u8") {
 			r.GET(fmt.Sprintf("/%s/%s/%s/%d/:id", c.endpointAntiColision, c.User, c.Password, i), trackConfig.m3u8ReverseProxy)
+		} else if strings.HasSuffix(track.URI, ".ts") {
+			r.GET(fmt.Sprintf("/%s/%s/%s/%d/hlsdownloads/:id", c.endpointAntiColision, c.User, c.Password, i), trackConfig.tsHandler)
 		} else {
 			r.GET(fmt.Sprintf("/%s/%s/%s/%d/%s", c.endpointAntiColision, c.User, c.Password, i, path.Base(track.URI)), trackConfig.reverseProxy)
 		}
+
 	}
 }

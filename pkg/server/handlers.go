@@ -21,15 +21,18 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"github.com/grafov/m3u8"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"time"
 
+	"github.com/canhlinh/hlsdl"
 	"github.com/gin-gonic/gin"
 )
 
@@ -49,6 +52,22 @@ func (c *Config) reverseProxy(ctx *gin.Context) {
 
 	c.stream(ctx, rpURL)
 }
+func (c *Config) tsHandler(ctx *gin.Context) {
+	// Получите имя файла из параметра запроса
+	filename := ctx.Param("id")
+
+	// Постройте полный путь к файлу
+	filepath := fmt.Sprintf("hlsdownloads/%s", filename)
+
+	// Проверьте, существует ли файл
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		ctx.String(http.StatusNotFound, "File not found")
+		return
+	}
+
+	// Отправьте файл пользователю
+	ctx.File(filepath)
+}
 
 func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	id := ctx.Param("id")
@@ -58,8 +77,55 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
+	fullURL := rpURL.Scheme + "://" + rpURL.Host + rpURL.Path
 
-	c.stream(ctx, rpURL)
+	// Загрузите оригинальный плейлист
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Разберите плейлист
+	p, listType, err := m3u8.DecodeFrom(bytes.NewReader(body), true)
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Создайте новый экземпляр HlsDl
+	downloader := hlsdl.New(fullURL, nil, "hlsdownloads", 10, true, "")
+
+	filepath, err := downloader.Download()
+	if err != nil {
+		panic(err)
+	}
+
+	if listType == m3u8.MEDIA {
+		mediaList := p.(*m3u8.MediaPlaylist)
+
+		// Замените сегменты на свои
+		for _, segment := range mediaList.Segments {
+			if segment != nil {
+				segment.URI = filepath // Замените на ваш путь к сегменту
+			}
+		}
+
+		// Генерируйте новый плейлист
+		modifiedPlaylist := mediaList.Encode().Bytes()
+
+		// Отправьте новый плейлист пользователю
+		ctx.Data(http.StatusOK, "application/vnd.apple.mpegurl", modifiedPlaylist)
+	}
+
+	//c.stream(ctx, rpURL)
 }
 
 func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {
