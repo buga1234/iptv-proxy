@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"github.com/grafov/m3u8"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -238,5 +237,5 @@ func (c *Config) appAuthenticate(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusUnauthorized)
 	}
 
-	ctx.Request.Body = ioutil.NopCloser(bytes.NewReader(contents))
+	ctx.Request.Body = io.NopCloser(bytes.NewReader(contents))
 }
