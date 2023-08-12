@@ -20,6 +20,7 @@ package server
 
 import (
 	"bytes"
+	_ "embed"
 	"fmt"
 	"github.com/grafov/m3u8"
 	"io"
@@ -35,6 +36,9 @@ import (
 	"github.com/canhlinh/hlsdl"
 	"github.com/gin-gonic/gin"
 )
+
+//go:embed fake.ts
+var fakeTS []byte
 
 func (c *Config) getM3U(ctx *gin.Context) {
 	ctx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, c.M3UFileName))
@@ -65,7 +69,7 @@ func (c *Config) tsHandler(ctx *gin.Context) {
 	// Проверка существования файла
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		// Если файла нет, отдаем фейковый файл
-		ctx.File("iptv/fake.ts")
+		ctx.Data(http.StatusOK, "video/MP2T", fakeTS)
 		return
 	}
 

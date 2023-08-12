@@ -20,10 +20,13 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/romaxa55/iptv-proxy/pkg/config"
 
@@ -100,6 +103,8 @@ var rootCmd = &cobra.Command{
 		if e := server.Serve(); e != nil {
 			log.Fatal(e)
 		}
+		// Запуск housekeeper в горутине
+		go housekeeper()
 	},
 }
 
@@ -166,5 +171,30 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+}
+
+func housekeeper() {
+	ticker := time.NewTicker(5 * time.Minute) // Запуск каждые 5 минут, например
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			var totalSize int64
+			dir := "hlsdownloads/"
+
+			files, _ := ioutil.ReadDir(dir)
+			sort.Slice(files, func(i, j int) bool {
+				return files[i].ModTime().Before(files[j].ModTime())
+			})
+
+			for _, f := range files {
+				totalSize += f.Size()
+				if totalSize > 100*1024*1024 || time.Since(f.ModTime()) > 10*time.Minute {
+					os.Remove(dir + f.Name())
+				}
+			}
+		}
 	}
 }
