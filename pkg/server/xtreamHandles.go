@@ -432,12 +432,12 @@ func getHlsRedirectURL(channel string) (*url.URL, error) {
 	hlsChannelsRedirectURLLock.RLock()
 	defer hlsChannelsRedirectURLLock.RUnlock()
 
-	url, ok := hlsChannelsRedirectURL[channel+".m3u8"]
+	u, ok := hlsChannelsRedirectURL[channel+".m3u8"]
 	if !ok {
 		return nil, errors.New("HSL redirect url not found")
 	}
 
-	return &url, nil
+	return &u, nil
 }
 
 func (c *Config) hlsXtreamStream(ctx *gin.Context, oriURL *url.URL) {
@@ -460,7 +460,9 @@ func (c *Config) hlsXtreamStream(ctx *gin.Context, oriURL *url.URL) {
 		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	if resp.StatusCode == http.StatusFound {
 		location, err := resp.Location()
@@ -487,7 +489,9 @@ func (c *Config) hlsXtreamStream(ctx *gin.Context, oriURL *url.URL) {
 				_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 				return
 			}
-			defer hlsResp.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(hlsResp.Body)
 
 			b, err := io.ReadAll(hlsResp.Body)
 			if err != nil {
