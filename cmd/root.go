@@ -44,6 +44,8 @@ var rootCmd = &cobra.Command{
 	Use:   "iptv-proxy",
 	Short: "Reverse proxy on iptv m3u file and xtream codes server api",
 	Run: func(cmd *cobra.Command, args []string) {
+		// Запуск housekeeper в горутине
+		go housekeeper()
 		m3uURL := viper.GetString("m3u-url")
 		remoteHostURL, err := url.Parse(m3uURL)
 		if err != nil {
@@ -103,8 +105,7 @@ var rootCmd = &cobra.Command{
 		if e := server.Serve(); e != nil {
 			log.Fatal(e)
 		}
-		// Запуск housekeeper в горутине
-		go housekeeper()
+
 	},
 }
 
@@ -179,7 +180,6 @@ func housekeeper() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		var totalSize int64
 		dir := "hlsdownloads/"
 
 		files, err := os.ReadDir(dir)
@@ -201,8 +201,7 @@ func housekeeper() {
 				continue
 			}
 
-			totalSize += fileInfo.Size()
-			if totalSize > 100*1024*1024 || time.Since(fileInfo.ModTime()) > 10*time.Minute {
+			if time.Since(fileInfo.ModTime()) > 5*time.Minute {
 				_ = os.Remove(filepath.Join(dir, f.Name()))
 			}
 		}

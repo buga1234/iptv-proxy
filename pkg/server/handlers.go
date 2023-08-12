@@ -22,7 +22,6 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
-	"github.com/canhlinh/hlsdl"
 	"github.com/gin-gonic/gin"
 	"github.com/grafov/m3u8"
 	"io"
@@ -30,10 +29,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -51,25 +47,25 @@ type FFmpegParams struct {
 	Tune         string
 }
 
-func NewFFmpegParams() *FFmpegParams {
-	return &FFmpegParams{
-		CRF:          getEnv("CRF", "32"),
-		BitrateVideo: getEnv("BITRATE_VIDEO", "1024k"),
-		BitrateAudio: getEnv("BITRATE_AUDIO", "128k"),
-		Preset:       getEnv("PRESET", "ultrafast"),
-		Scale:        getEnv("SCALE", "1024:720"),
-		Threads:      getEnv("THREADS", strconv.Itoa(runtime.NumCPU())),
-		Tune:         getEnv("TUNE", "zerolatency"),
-	}
-}
-
-func getEnv(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
-}
+//func NewFFmpegParams() *FFmpegParams {
+//	return &FFmpegParams{
+//		CRF:          getEnv("CRF", "32"),
+//		BitrateVideo: getEnv("BITRATE_VIDEO", "1024k"),
+//		BitrateAudio: getEnv("BITRATE_AUDIO", "128k"),
+//		Preset:       getEnv("PRESET", "ultrafast"),
+//		Scale:        getEnv("SCALE", "1024:720"),
+//		Threads:      getEnv("THREADS", strconv.Itoa(runtime.NumCPU())),
+//		Tune:         getEnv("TUNE", "zerolatency"),
+//	}
+//}
+//
+//func getEnv(key, defaultValue string) string {
+//	value := os.Getenv(key)
+//	if value == "" {
+//		return defaultValue
+//	}
+//	return value
+//}
 
 func (c *Config) getM3U(ctx *gin.Context) {
 	ctx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, c.M3UFileName))
@@ -134,82 +130,21 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		return
 	}
 
-	// Разберите плейлист
 	p, listType, err := m3u8.DecodeFrom(bytes.NewReader(body), true)
 	if err != nil {
 		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 
-	// Создайте новый экземпляр HlsDl
-	downloader := hlsdl.New(fullURL, nil, "hlsdownloads", 64, true, "")
-
-	// Засекаем время начала загрузки
-	startDownloadTime := time.Now()
-	filepath, err := downloader.Download()
-	if err != nil {
-		log.Fatalf("Ошибка при загрузке: %v", err)
-	}
-	endDownloadTime := time.Now()
-
-	// Добавление суффикса к имени файла
-	dir := filepath[:strings.LastIndex(filepath, "/")]
-	base := filepath[strings.LastIndex(filepath, "/")+1:]
-	ext := base[strings.LastIndex(base, "."):]
-	newName := base[:len(base)-len(ext)] + "_compressed" + ext
-	outputFile := dir + "/" + newName
-
-	params := NewFFmpegParams()
-	scaleArgs := []string{"-vf", "scale=" + params.Scale}
-
-	// Сжатие файла с помощью ffmpeg
-	cmdArgs := append([]string{"-i", filepath, "-c:v", "libx265", "-crf", params.CRF, "-b:v", params.BitrateVideo, "-b:a", params.BitrateAudio, "-preset", params.Preset, "-threads", params.Threads, "-tune", params.Tune}, scaleArgs...)
-	cmdArgs = append(cmdArgs, outputFile)
-
-	// Вывод параметров запуска в логе
-	log.Println("Running ffmpeg with arguments:", strings.Join(cmdArgs, " "))
-
-	cmd := exec.Command("ffmpeg", cmdArgs...)
-
-	err = cmd.Run()
-	if err != nil {
-		log.Fatalf("Ошибка при сжатии файла: %v", err)
-	}
-	endCompressionTime := time.Now()
-	// Расчет времени загрузки и сжатия
-	downloadDuration := endDownloadTime.Sub(startDownloadTime)
-	compressionDuration := endCompressionTime.Sub(endDownloadTime)
-	log.Printf("Download duration: %v", downloadDuration)
-	log.Printf("Compression duration: %v", compressionDuration)
-
-	if listType == m3u8.MEDIA {
-		mediaList := p.(*m3u8.MediaPlaylist)
-
-		// Если есть сегменты, сохраните первый сегмент
-		var firstSegment *m3u8.MediaSegment
-		if len(mediaList.Segments) > 0 {
-			firstSegment = mediaList.Segments[0]
-		}
-
-		// Очистите все сегменты
-		for i := range mediaList.Segments {
-			mediaList.Segments[i] = nil
-		}
-
-		// Если у вас есть первый сегмент, добавьте его обратно в плейлист
-		if firstSegment != nil {
-			firstSegment.URI = "/" + outputFile // Замените на ваш путь к сегменту
-			mediaList.Segments[0] = firstSegment
-		}
-
-		// Генерируйте новый плейлист
+	if mediaPlaylist, ok := p.(*m3u8.MediaPlaylist); ok {
+		mediaList := downloadSegmentsFromPlaylist(mediaPlaylist, listType)
 		modifiedPlaylist := mediaList.Encode().Bytes()
-
 		// Отправьте новый плейлист пользователю
 		ctx.Data(http.StatusOK, "application/vnd.apple.mpegurl", modifiedPlaylist)
+	} else {
+		log.Println("Ошибка: плейлист не является медиа-плейлистом")
 	}
 
-	//c.stream(ctx, rpURL)
 }
 
 func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {
