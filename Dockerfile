@@ -4,7 +4,7 @@ RUN apk add ca-certificates
 
 WORKDIR /go/src/github.com/romaxa55/iptv-proxy
 COPY . .
-RUN GO111MODULE=off CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o iptv-proxy .
+RUN GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o iptv-proxy .
 
 FROM alpine:3
 COPY --from=0  /go/src/github.com/romaxa55/iptv-proxy/iptv-proxy /
