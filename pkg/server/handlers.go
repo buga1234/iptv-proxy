@@ -162,7 +162,7 @@ func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {
 	mergeHttpHeader(ctx.Writer.Header(), resp.Header)
 	ctx.Status(resp.StatusCode)
 	ctx.Stream(func(w io.Writer) bool {
-		io.Copy(w, resp.Body) // nolint: errcheck
+		_, _ = io.Copy(w, resp.Body) // nolint: errcheck
 		return false
 	})
 }
@@ -209,7 +209,7 @@ type authRequest struct {
 func (c *Config) authenticate(ctx *gin.Context) {
 	var authReq authRequest
 	if err := ctx.Bind(&authReq); err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusBadRequest, err) // nolint: errcheck
 		return
 	}
 	if c.ProxyConfig.User.String() != authReq.Username || c.ProxyConfig.Password.String() != authReq.Password {
@@ -218,19 +218,19 @@ func (c *Config) authenticate(ctx *gin.Context) {
 }
 
 func (c *Config) appAuthenticate(ctx *gin.Context) {
-	contents, err := ioutil.ReadAll(ctx.Request.Body)
+	contents, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 
 	q, err := url.ParseQuery(string(contents))
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 	if len(q["username"]) == 0 || len(q["password"]) == 0 {
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("bad body url query parameters")) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("bad body url query parameters")) // nolint: errcheck
 		return
 	}
 	log.Printf("[iptv-proxy] %v | %s |App Auth\n", time.Now().Format("2006/01/02 - 15:04:05"), ctx.ClientIP())
