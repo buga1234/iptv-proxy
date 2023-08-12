@@ -37,14 +37,18 @@ func (c *Config) routes(r *gin.RouterGroup) {
 			c.XtreamPassword.String() == c.RemoteURL.Query().Get("password") {
 
 			r.GET("/"+c.M3UFileName, c.authenticate, c.xtreamGetAuto)
+
 			// XXX Private need: for external Android app
 			r.POST("/"+c.M3UFileName, c.authenticate, c.xtreamGetAuto)
 
 			return
 		}
 	}
+	// Добавление маршрута для .ts файлов
+	r.GET("/hlsdownloads/:filename", c.tsHandler)
 
 	c.m3uRoutes(r)
+
 }
 
 func (c *Config) xtreamRoutes(r *gin.RouterGroup) {
@@ -81,8 +85,6 @@ func (c *Config) m3uRoutes(r *gin.RouterGroup) {
 
 		if strings.HasSuffix(track.URI, ".m3u8") {
 			r.GET(fmt.Sprintf("/%s/%s/%s/%d/:id", c.endpointAntiColision, c.User, c.Password, i), trackConfig.m3u8ReverseProxy)
-		} else if strings.HasSuffix(track.URI, ".ts") {
-			r.GET(fmt.Sprintf("/%s/%s/%s/%d/hlsdownloads/:id", c.endpointAntiColision, c.User, c.Password, i), trackConfig.tsHandler)
 		} else {
 			r.GET(fmt.Sprintf("/%s/%s/%s/%d/%s", c.endpointAntiColision, c.User, c.Password, i, path.Base(track.URI)), trackConfig.reverseProxy)
 		}

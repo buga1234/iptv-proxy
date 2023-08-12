@@ -53,20 +53,25 @@ func (c *Config) reverseProxy(ctx *gin.Context) {
 	c.stream(ctx, rpURL)
 }
 func (c *Config) tsHandler(ctx *gin.Context) {
-	// Получите имя файла из параметра запроса
-	filename := ctx.Param("id")
-
-	// Постройте полный путь к файлу
-	filepath := fmt.Sprintf("hlsdownloads/%s", filename)
-
-	// Проверьте, существует ли файл
-	if _, err := os.Stat(filepath); os.IsNotExist(err) {
-		ctx.String(http.StatusNotFound, "File not found")
+	filename := ctx.Param("filename")
+	if !strings.HasSuffix(filename, ".ts") {
+		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	// Отправьте файл пользователю
-	ctx.File(filepath)
+	// Путь к каталогу hlsdownloads
+	filePath := "hlsdownloads/" + filename
+
+	// Проверка существования файла
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// Если файла нет, отдаем фейковый файл
+		ctx.File("iptv/fake.ts")
+		return
+	}
+
+	// Отдаем реальный файл
+	ctx.File(filePath)
+	return
 }
 
 func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
@@ -114,7 +119,7 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		// Замените сегменты на свои
 		for _, segment := range mediaList.Segments {
 			if segment != nil {
-				segment.URI = filepath // Замените на ваш путь к сегменту
+				segment.URI = "/" + filepath // Замените на ваш путь к сегменту
 			}
 		}
 

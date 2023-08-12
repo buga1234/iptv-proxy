@@ -4,6 +4,7 @@
 *.so
 *.dylib
 *.ts
+!iptv/fake.ts
 vendor/
 
 # Test binary, build with `go test -c`
