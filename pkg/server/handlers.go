@@ -50,7 +50,7 @@ func (c *Config) getM3U(ctx *gin.Context) {
 func (c *Config) reverseProxy(ctx *gin.Context) {
 	rpURL, err := url.Parse(c.track.URI)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 
@@ -83,7 +83,7 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 
 	rpURL, err := url.Parse(strings.ReplaceAll(c.track.URI, path.Base(c.track.URI), id))
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 	fullURL := rpURL.Scheme + "://" + rpURL.Host + rpURL.Path
@@ -91,21 +91,21 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	// Загрузите оригинальный плейлист
 	resp, err := http.Get(fullURL)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 
 	// Разберите плейлист
 	p, listType, err := m3u8.DecodeFrom(bytes.NewReader(body), true)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 
