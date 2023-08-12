@@ -1,4 +1,4 @@
 FROM alpine:3
-RUN apk add ca-certificates
+RUN apk add --no-cache ca-certificates ffmpeg
 COPY iptv-proxy /
 ENTRYPOINT ["/iptv-proxy"]
