@@ -22,18 +22,18 @@ import (
 	"bytes"
 	_ "embed"
 	"fmt"
+	"github.com/canhlinh/hlsdl"
+	"github.com/gin-gonic/gin"
 	"github.com/grafov/m3u8"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 	"time"
-
-	"github.com/canhlinh/hlsdl"
-	"github.com/gin-gonic/gin"
 )
 
 //go:embed fake.ts
@@ -114,7 +114,21 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 
 	filepath, err := downloader.Download()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Ошибка при загрузке: %v", err)
+	}
+
+	// Добавление суффикса к имени файла
+	dir := filepath[:strings.LastIndex(filepath, "/")]
+	base := filepath[strings.LastIndex(filepath, "/")+1:]
+	ext := base[strings.LastIndex(base, "."):]
+	newName := base[:len(base)-len(ext)] + "_compressed" + ext
+	outputFile := dir + "/" + newName
+
+	// Сжатие файла с помощью ffmpeg
+	cmd := exec.Command("ffmpeg", "-i", filepath, "-b:v", "800k", "-b:a", "128k", "-preset", "ultrafast", outputFile)
+	err = cmd.Run()
+	if err != nil {
+		log.Fatalf("Ошибка при сжатии файла: %v", err)
 	}
 
 	if listType == m3u8.MEDIA {
@@ -123,7 +137,7 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		// Замените сегменты на свои
 		for _, segment := range mediaList.Segments {
 			if segment != nil {
-				segment.URI = "/" + filepath // Замените на ваш путь к сегменту
+				segment.URI = "/" + outputFile // Замените на ваш путь к сегменту
 			}
 		}
 
