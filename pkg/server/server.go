@@ -26,26 +26,21 @@ import (
 	"github.com/jamesnetherton/m3u"
 	"github.com/romaxa55/iptv-proxy/pkg/config"
 	uuid "github.com/satori/go.uuid"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 var defaultProxyfiedM3UPath = filepath.Join(os.TempDir(), uuid.NewV4().String()+".iptv-proxy.m3u")
 var endpointAntiColision = "a6d7e846"
-
-type SegmentMapping struct {
-	OriginalURI   string
-	DownloadedURI string
-}
 
 const downloadDir = "hlsdownloads"
 
@@ -200,13 +195,13 @@ func (c *Config) replaceURL(uri string, trackIndex int, xtream bool) (string, er
 	return newURL.String(), nil
 }
 
-func downloadSegments(mappings []*SegmentMapping) {
+func downloadSegments(segments []string) []string {
 	var wg sync.WaitGroup
-	ch := make(chan *SegmentMapping, len(mappings))
+	ch := make(chan string, len(segments))
 
-	for _, mapping := range mappings {
+	for _, segment := range segments {
 		wg.Add(1)
-		go downloadSegment(mapping, &wg, ch)
+		go downloadSegment(segment, &wg, ch)
 	}
 
 	go func() {
@@ -214,52 +209,49 @@ func downloadSegments(mappings []*SegmentMapping) {
 		close(ch)
 	}()
 
-	for downloadedMapping := range ch {
-		for _, mapping := range mappings {
-			if mapping.OriginalURI == downloadedMapping.OriginalURI {
-				mapping.DownloadedURI = downloadedMapping.DownloadedURI
-				break
-			}
-		}
+	var result []string
+	for filename := range ch {
+		result = append(result, filename)
 	}
+
+	return result
 }
 
-func downloadSegment(mapping *SegmentMapping, wg *sync.WaitGroup, ch chan<- *SegmentMapping) {
+func downloadSegment(url string, wg *sync.WaitGroup, ch chan<- string) {
 	defer wg.Done()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("Ошибка при скачивании %s: %v", url, err)
+		return
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	// Создаем директорию, если она не существует
 	if _, err := os.Stat("hlsdownloads"); os.IsNotExist(err) {
-		_ = os.Mkdir("hlsdownloads", 0755) // test
+		_ = os.Mkdir("hlsdownloads", 0755)
 	}
 
-	convertedFilename := filepath.Join(downloadDir, cleanFilename(mapping.OriginalURI)+"_converted.ts")
-	err := convertSegment(mapping.OriginalURI, convertedFilename)
+	filename := filepath.Join(downloadDir, cleanFilename(url))
+	file, err := os.Create(filename)
 	if err != nil {
-		log.Printf("Ошибка при конвертации сегмента %s: %v", mapping.OriginalURI, err)
+		log.Printf("Ошибка при создании файла %s: %v", filename, err)
 		return
 	}
 
-	mapping.DownloadedURI = "/" + convertedFilename
-	ch <- mapping
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
-}
-
-func convertSegment(inputURL string, output string) error {
-	// Проверяем, существует ли файл
-	if _, err := os.Stat(output); os.IsNotExist(err) {
-		cmd := exec.Command("ffmpeg", "-i", inputURL, "-c:v", "libx265", "-preset", "ultrafast", "-b:v", "800k", "-c:a", "aac", "-b:a", "128k", output)
-
-		startTime := time.Now() // Запоминаем начальное время
-
-		err := cmd.Run()
-		if err != nil {
-			return fmt.Errorf("Ошибка при выполнении ffmpeg: %v", err)
-		}
-
-		duration := time.Since(startTime) // Вычисляем продолжительность конвертации
-		log.Printf("Сегмент %s был сконвертирован за %v", output, duration)
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		log.Printf("Ошибка при записи в файл %s: %v", filename, err)
+		return
 	}
-	return nil
+
+	ch <- filename
 }
 
 func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType) *m3u8.MediaPlaylist {
@@ -267,18 +259,30 @@ func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType)
 		log.Println("Поддерживается только тип списка MEDIA")
 		return p
 	}
+	type SegmentMapping struct {
+		OriginalURI   string
+		DownloadedURI string
+	}
 
-	// Создаем список структур SegmentMapping для каждого сегмента
-	var mappings []*SegmentMapping
+	// Сначала создадим список оригинальных URI и инициализируем список соответствий
+	var segments []string
+	var mappings []SegmentMapping
 	for _, seg := range p.Segments {
 		if seg != nil {
-			mappings = append(mappings, &SegmentMapping{OriginalURI: seg.URI})
+			segments = append(segments, seg.URI)
+			mappings = append(mappings, SegmentMapping{OriginalURI: seg.URI})
 		}
 	}
 
 	// Загружаем сегменты
-	downloadSegments(mappings)
+	downloadedSegments := downloadSegments(segments)
 
+	// Обновляем список соответствий с загруженными URI
+	for i, downloadedURI := range downloadedSegments {
+		mappings[i].DownloadedURI = "/" + downloadedURI
+	}
+
+	// Теперь обновляем URI в p.Segments на основе списка соответствий
 	for _, seg := range p.Segments {
 		for _, mapping := range mappings {
 			if seg != nil && seg.URI == mapping.OriginalURI {
