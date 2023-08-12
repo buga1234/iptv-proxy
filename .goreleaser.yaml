@@ -6,7 +6,7 @@ builds:
       - CGO_ENABLED=0
       - GO111MODULE=on
     flags:
-      - -m=vendor
+      - -mod=vendor
       - -a
     goos:
       - windows
