@@ -8,6 +8,7 @@ builds:
     flags:
       - -mod=vendor
       - -a
+      - --clean
     goos:
       - windows
       - darwin
