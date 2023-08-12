@@ -21,23 +21,28 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"github.com/gin-contrib/cors"
+	"github.com/grafov/m3u8"
+	"github.com/jamesnetherton/m3u"
+	"github.com/romaxa55/iptv-proxy/pkg/config"
+	uuid "github.com/satori/go.uuid"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/gin-contrib/cors"
-	"github.com/jamesnetherton/m3u"
-	"github.com/romaxa55/iptv-proxy/pkg/config"
-	uuid "github.com/satori/go.uuid"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
 var defaultProxyfiedM3UPath = filepath.Join(os.TempDir(), uuid.NewV4().String()+".iptv-proxy.m3u")
 var endpointAntiColision = "a6d7e846"
+
+const downloadDir = "hlsdownloads"
 
 // Config represent the server configuration
 type Config struct {
@@ -100,7 +105,9 @@ func (c *Config) playlistInitialization() error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
 
 	return c.marshallInto(f, false)
 }
@@ -110,7 +117,7 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 	filteredTrack := make([]m3u.Track, 0, len(c.playlist.Tracks))
 
 	ret := 0
-	into.WriteString("#EXTM3U\n") // nolint: errcheck
+	_, _ = into.WriteString("#EXTM3U\n") // nolint: errcheck
 	for i, track := range c.playlist.Tracks {
 		var buffer bytes.Buffer
 
@@ -131,7 +138,7 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 			continue
 		}
 
-		into.WriteString(fmt.Sprintf("%s, %s\n%s\n", buffer.String(), track.Name, uri)) // nolint: errcheck
+		_, _ = into.WriteString(fmt.Sprintf("%s, %s\n%s\n", buffer.String(), track.Name, uri)) // nolint: errcheck
 
 		filteredTrack = append(filteredTrack, track)
 	}
@@ -186,4 +193,109 @@ func (c *Config) replaceURL(uri string, trackIndex int, xtream bool) (string, er
 	}
 
 	return newURL.String(), nil
+}
+
+func downloadSegments(segments []string) []string {
+	var wg sync.WaitGroup
+	ch := make(chan string, len(segments))
+
+	for _, segment := range segments {
+		wg.Add(1)
+		go downloadSegment(segment, &wg, ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	var result []string
+	for filename := range ch {
+		result = append(result, filename)
+	}
+
+	return result
+}
+
+func downloadSegment(url string, wg *sync.WaitGroup, ch chan<- string) {
+	defer wg.Done()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		log.Printf("Ошибка при скачивании %s: %v", url, err)
+		return
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	// Создаем директорию, если она не существует
+	if _, err := os.Stat("hlsdownloads"); os.IsNotExist(err) {
+		_ = os.Mkdir("hlsdownloads", 0755)
+	}
+
+	filename := filepath.Join(downloadDir, cleanFilename(url))
+	file, err := os.Create(filename)
+	if err != nil {
+		log.Printf("Ошибка при создании файла %s: %v", filename, err)
+		return
+	}
+
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
+
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		log.Printf("Ошибка при записи в файл %s: %v", filename, err)
+		return
+	}
+
+	ch <- filename
+}
+
+func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType) *m3u8.MediaPlaylist {
+	if listType != m3u8.MEDIA {
+		log.Println("Поддерживается только тип списка MEDIA")
+		return p
+	}
+	type SegmentMapping struct {
+		OriginalURI   string
+		DownloadedURI string
+	}
+
+	// Сначала создадим список оригинальных URI и инициализируем список соответствий
+	var segments []string
+	var mappings []SegmentMapping
+	for _, seg := range p.Segments {
+		if seg != nil {
+			segments = append(segments, seg.URI)
+			mappings = append(mappings, SegmentMapping{OriginalURI: seg.URI})
+		}
+	}
+
+	// Загружаем сегменты
+	downloadedSegments := downloadSegments(segments)
+
+	// Обновляем список соответствий с загруженными URI
+	for i, downloadedURI := range downloadedSegments {
+		mappings[i].DownloadedURI = "/" + downloadedURI
+	}
+
+	// Теперь обновляем URI в p.Segments на основе списка соответствий
+	for _, seg := range p.Segments {
+		for _, mapping := range mappings {
+			if seg != nil && seg.URI == mapping.OriginalURI {
+				seg.URI = mapping.DownloadedURI
+				break
+			}
+		}
+	}
+
+	return p
+}
+
+func cleanFilename(url string) string {
+	base := filepath.Base(url)         // извлекаем базовое имя файла из URL
+	return strings.Split(base, "?")[0] // убираем все после знака "?"
 }
