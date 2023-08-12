@@ -37,7 +37,7 @@ import (
 )
 
 var defaultProxyfiedM3UPath = filepath.Join(os.TempDir(), uuid.NewV4().String()+".iptv-proxy.m3u")
-var endpointAntiColision = strings.Split(uuid.NewV4().String(), "-")[0]
+var endpointAntiColision = "a6d7e846"
 
 // Config represent the server configuration
 type Config struct {
@@ -64,9 +64,9 @@ func NewServer(config *config.ProxyConfig) (*Config, error) {
 		}
 	}
 
-        if trimmedCustomId := strings.Trim(config.CustomId, "/"); trimmedCustomId != "" {
-                endpointAntiColision = trimmedCustomId
-        }
+	if trimmedCustomId := strings.Trim(config.CustomId, "/"); trimmedCustomId != "" {
+		endpointAntiColision = trimmedCustomId
+	}
 
 	return &Config{
 		config,
