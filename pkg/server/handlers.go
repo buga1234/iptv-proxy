@@ -94,7 +94,9 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -142,7 +144,7 @@ func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {
 
 	req, err := http.NewRequest("GET", oriURL.String(), nil)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
 
@@ -150,10 +152,12 @@ func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
 		return
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	mergeHttpHeader(ctx.Writer.Header(), resp.Header)
 	ctx.Status(resp.StatusCode)
