@@ -125,7 +125,7 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	outputFile := dir + "/" + newName
 
 	// Сжатие файла с помощью ffmpeg
-	cmd := exec.Command("ffmpeg", "-i", filepath, "-vf", "scale=720:480", "-c:v", "libx265", "-b:v", "600k", "-b:a", "128k", "-preset", "medium", outputFile)
+	cmd := exec.Command("ffmpeg", "-i", filepath, "-vf", "scale=720:480", "-c:v", "libx265", "-b:v", "600k", "-b:a", "128k", "-preset", "fast", outputFile)
 	err = cmd.Run()
 	if err != nil {
 		log.Fatalf("Ошибка при сжатии файла: %v", err)
