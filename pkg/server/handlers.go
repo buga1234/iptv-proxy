@@ -32,12 +32,44 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
 
 //go:embed fake.ts
 var fakeTS []byte
+
+type FFmpegParams struct {
+	CRF          string
+	BitrateVideo string
+	BitrateAudio string
+	Preset       string
+	Scale        string
+	Threads      string
+	Tune         string
+}
+
+func NewFFmpegParams() *FFmpegParams {
+	return &FFmpegParams{
+		CRF:          getEnv("CRF", "32"),
+		BitrateVideo: getEnv("BITRATE_VIDEO", "1024k"),
+		BitrateAudio: getEnv("BITRATE_AUDIO", "128k"),
+		Preset:       getEnv("PRESET", "ultrafast"),
+		Scale:        getEnv("SCALE", "1024:720"),
+		Threads:      getEnv("THREADS", strconv.Itoa(runtime.NumCPU())),
+		Tune:         getEnv("TUNE", "zerolatency"),
+	}
+}
+
+func getEnv(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
 
 func (c *Config) getM3U(ctx *gin.Context) {
 	ctx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, c.M3UFileName))
@@ -110,12 +142,15 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	}
 
 	// Создайте новый экземпляр HlsDl
-	downloader := hlsdl.New(fullURL, nil, "hlsdownloads", 10, true, "")
+	downloader := hlsdl.New(fullURL, nil, "hlsdownloads", 64, true, "")
 
+	// Засекаем время начала загрузки
+	startDownloadTime := time.Now()
 	filepath, err := downloader.Download()
 	if err != nil {
 		log.Fatalf("Ошибка при загрузке: %v", err)
 	}
+	endDownloadTime := time.Now()
 
 	// Добавление суффикса к имени файла
 	dir := filepath[:strings.LastIndex(filepath, "/")]
@@ -124,12 +159,28 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	newName := base[:len(base)-len(ext)] + "_compressed" + ext
 	outputFile := dir + "/" + newName
 
+	params := NewFFmpegParams()
+	scaleArgs := []string{"-vf", "scale=" + params.Scale}
+
 	// Сжатие файла с помощью ffmpeg
-	cmd := exec.Command("ffmpeg", "-i", filepath, "-vf", "scale=720:480", "-c:v", "libx265", "-b:v", "600k", "-b:a", "128k", "-preset", "fast", outputFile)
+	cmdArgs := append([]string{"-i", filepath, "-c:v", "libx265", "-crf", params.CRF, "-b:v", params.BitrateVideo, "-b:a", params.BitrateAudio, "-preset", params.Preset, "-threads", params.Threads, "-tune", params.Tune}, scaleArgs...)
+	cmdArgs = append(cmdArgs, outputFile)
+
+	// Вывод параметров запуска в логе
+	log.Println("Running ffmpeg with arguments:", strings.Join(cmdArgs, " "))
+
+	cmd := exec.Command("ffmpeg", cmdArgs...)
+
 	err = cmd.Run()
 	if err != nil {
 		log.Fatalf("Ошибка при сжатии файла: %v", err)
 	}
+	endCompressionTime := time.Now()
+	// Расчет времени загрузки и сжатия
+	downloadDuration := endDownloadTime.Sub(startDownloadTime)
+	compressionDuration := endCompressionTime.Sub(endDownloadTime)
+	log.Printf("Download duration: %v", downloadDuration)
+	log.Printf("Compression duration: %v", compressionDuration)
 
 	if listType == m3u8.MEDIA {
 		mediaList := p.(*m3u8.MediaPlaylist)
