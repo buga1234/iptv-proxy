@@ -20,10 +20,10 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -175,25 +175,35 @@ func initConfig() {
 }
 
 func housekeeper() {
-	ticker := time.NewTicker(5 * time.Minute) // Запуск каждые 5 минут, например
+	ticker := time.NewTicker(time.Minute) // Предположим, что вы хотите проверять каждую минуту
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			var totalSize int64
-			dir := "hlsdownloads/"
+	for range ticker.C {
+		var totalSize int64
+		dir := "hlsdownloads/"
 
-			files, _ := ioutil.ReadDir(dir)
-			sort.Slice(files, func(i, j int) bool {
-				return files[i].ModTime().Before(files[j].ModTime())
-			})
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			// Обработка ошибки, например, запись в лог
+			continue
+		}
 
-			for _, f := range files {
-				totalSize += f.Size()
-				if totalSize > 100*1024*1024 || time.Since(f.ModTime()) > 10*time.Minute {
-					os.Remove(dir + f.Name())
-				}
+		sort.Slice(files, func(i, j int) bool {
+			ti, _ := files[i].Info()
+			tj, _ := files[j].Info()
+			return ti.ModTime().Before(tj.ModTime())
+		})
+
+		for _, f := range files {
+			fileInfo, err := f.Info()
+			if err != nil {
+				// Обработка ошибки, например, запись в лог
+				continue
+			}
+
+			totalSize += fileInfo.Size()
+			if totalSize > 100*1024*1024 || time.Since(fileInfo.ModTime()) > 10*time.Minute {
+				_ = os.Remove(filepath.Join(dir, f.Name()))
 			}
 		}
 	}
