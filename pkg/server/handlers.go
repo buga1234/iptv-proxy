@@ -74,7 +74,6 @@ func (c *Config) tsHandler(ctx *gin.Context) {
 
 	// Отдаем реальный файл
 	ctx.File(filePath)
-	return
 }
 
 func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
