@@ -134,11 +134,21 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	if listType == m3u8.MEDIA {
 		mediaList := p.(*m3u8.MediaPlaylist)
 
-		// Замените сегменты на свои
-		for _, segment := range mediaList.Segments {
-			if segment != nil {
-				segment.URI = "/" + outputFile // Замените на ваш путь к сегменту
-			}
+		// Если есть сегменты, сохраните первый сегмент
+		var firstSegment *m3u8.MediaSegment
+		if len(mediaList.Segments) > 0 {
+			firstSegment = mediaList.Segments[0]
+		}
+
+		// Очистите все сегменты
+		for i := range mediaList.Segments {
+			mediaList.Segments[i] = nil
+		}
+
+		// Если у вас есть первый сегмент, добавьте его обратно в плейлист
+		if firstSegment != nil {
+			firstSegment.URI = "/" + outputFile // Замените на ваш путь к сегменту
+			mediaList.Segments[0] = firstSegment
 		}
 
 		// Генерируйте новый плейлист
