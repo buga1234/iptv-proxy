@@ -238,7 +238,7 @@ func downloadSegment(mapping *SegmentMapping, wg *sync.WaitGroup, ch chan<- *Seg
 
 	// Создаем директорию, если она не существует
 	if _, err := os.Stat("hlsdownloads"); os.IsNotExist(err) {
-		_ = os.Mkdir("hlsdownloads", 0755)
+		_ = os.Mkdir("hlsdownloads", 0755) // test
 	}
 
 	filename := filepath.Join(downloadDir, cleanFilename(mapping.OriginalURI))
