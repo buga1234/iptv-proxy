@@ -34,6 +34,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -244,9 +245,21 @@ func downloadSegment(mapping *SegmentMapping, wg *sync.WaitGroup, ch chan<- *Seg
 }
 
 func convertSegment(inputURL string, output string) error {
-	cmd := exec.Command("ffmpeg", "-i", inputURL, "-c:v", "copy", "-c:a", "copy", output)
-	err := cmd.Run()
-	return err
+	// Проверяем, существует ли файл
+	if _, err := os.Stat(output); os.IsNotExist(err) {
+		cmd := exec.Command("ffmpeg", "-i", inputURL, "-c:v", "libx265", "-preset", "ultrafast", "-b:v", "800k", "-c:a", "aac", "-b:a", "128k", output)
+
+		startTime := time.Now() // Запоминаем начальное время
+
+		err := cmd.Run()
+		if err != nil {
+			return fmt.Errorf("Ошибка при выполнении ffmpeg: %v", err)
+		}
+
+		duration := time.Since(startTime) // Вычисляем продолжительность конвертации
+		log.Printf("Сегмент %s был сконвертирован за %v", output, duration)
+	}
+	return nil
 }
 
 func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType) *m3u8.MediaPlaylist {
