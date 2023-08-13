@@ -26,11 +26,10 @@ import (
 	"github.com/jamesnetherton/m3u"
 	"github.com/romaxa55/iptv-proxy/pkg/config"
 	uuid "github.com/satori/go.uuid"
-	"io"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -227,39 +226,27 @@ func downloadSegments(mappings []*SegmentMapping) {
 func downloadSegment(mapping *SegmentMapping, wg *sync.WaitGroup, ch chan<- *SegmentMapping) {
 	defer wg.Done()
 
-	resp, err := http.Get(mapping.OriginalURI)
-	if err != nil {
-		log.Printf("Ошибка при скачивании %s: %v", mapping.OriginalURI, err)
-		return
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
 	// Создаем директорию, если она не существует
 	if _, err := os.Stat("hlsdownloads"); os.IsNotExist(err) {
 		_ = os.Mkdir("hlsdownloads", 0755)
 	}
 
-	filename := filepath.Join(downloadDir, cleanFilename(mapping.OriginalURI))
-	file, err := os.Create(filename)
+	convertedFilename := filepath.Join(downloadDir, cleanFilename(mapping.OriginalURI)+"_converted.ts")
+	err := convertSegment(mapping.OriginalURI, convertedFilename)
 	if err != nil {
-		log.Printf("Ошибка при создании файла %s: %v", filename, err)
+		log.Printf("Ошибка при конвертации сегмента %s: %v", mapping.OriginalURI, err)
 		return
 	}
 
-	defer func(file *os.File) {
-		_ = file.Close()
-	}(file)
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		log.Printf("Ошибка при записи в файл %s: %v", filename, err)
-		return
-	}
-
-	mapping.DownloadedURI = "/" + filename
+	mapping.DownloadedURI = "/" + convertedFilename
 	ch <- mapping
+
+}
+
+func convertSegment(inputURL string, output string) error {
+	cmd := exec.Command("ffmpeg", "-i", inputURL, "-c:v", "copy", "-c:a", "copy", output)
+	err := cmd.Run()
+	return err
 }
 
 func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType) *m3u8.MediaPlaylist {
