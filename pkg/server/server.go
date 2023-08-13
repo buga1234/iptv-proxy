@@ -26,15 +26,15 @@ import (
 	"github.com/jamesnetherton/m3u"
 	"github.com/romaxa55/iptv-proxy/pkg/config"
 	uuid "github.com/satori/go.uuid"
-	"io"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -227,39 +227,39 @@ func downloadSegments(mappings []*SegmentMapping) {
 func downloadSegment(mapping *SegmentMapping, wg *sync.WaitGroup, ch chan<- *SegmentMapping) {
 	defer wg.Done()
 
-	resp, err := http.Get(mapping.OriginalURI)
-	if err != nil {
-		log.Printf("Ошибка при скачивании %s: %v", mapping.OriginalURI, err)
-		return
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
 	// Создаем директорию, если она не существует
 	if _, err := os.Stat("hlsdownloads"); os.IsNotExist(err) {
 		_ = os.Mkdir("hlsdownloads", 0755) // test
 	}
 
-	filename := filepath.Join(downloadDir, cleanFilename(mapping.OriginalURI))
-	file, err := os.Create(filename)
+	convertedFilename := filepath.Join(downloadDir, cleanFilename(mapping.OriginalURI)+"_converted.ts")
+	err := convertSegment(mapping.OriginalURI, convertedFilename)
 	if err != nil {
-		log.Printf("Ошибка при создании файла %s: %v", filename, err)
+		log.Printf("Ошибка при конвертации сегмента %s: %v", mapping.OriginalURI, err)
 		return
 	}
 
-	defer func(file *os.File) {
-		_ = file.Close()
-	}(file)
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		log.Printf("Ошибка при записи в файл %s: %v", filename, err)
-		return
-	}
-
-	mapping.DownloadedURI = "/" + filename
+	mapping.DownloadedURI = "/" + convertedFilename
 	ch <- mapping
+
+}
+
+func convertSegment(inputURL string, output string) error {
+	// Проверяем, существует ли файл
+	if _, err := os.Stat(output); os.IsNotExist(err) {
+		cmd := exec.Command("ffmpeg", "-i", inputURL, "-c:v", "libx265", "-preset", "ultrafast", "-b:v", "800k", "-c:a", "aac", "-b:a", "128k", output)
+
+		startTime := time.Now() // Запоминаем начальное время
+
+		err := cmd.Run()
+		if err != nil {
+			return fmt.Errorf("Ошибка при выполнении ffmpeg: %v", err)
+		}
+
+		duration := time.Since(startTime) // Вычисляем продолжительность конвертации
+		log.Printf("Сегмент %s был сконвертирован за %v", output, duration)
+	}
+	return nil
 }
 
 func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType) *m3u8.MediaPlaylist {
