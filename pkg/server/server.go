@@ -42,6 +42,11 @@ import (
 var defaultProxyfiedM3UPath = filepath.Join(os.TempDir(), uuid.NewV4().String()+".iptv-proxy.m3u")
 var endpointAntiColision = "a6d7e846"
 
+type SegmentMapping struct {
+	OriginalURI   string
+	DownloadedURI string
+}
+
 const downloadDir = "hlsdownloads"
 
 // Config represent the server configuration
@@ -195,13 +200,13 @@ func (c *Config) replaceURL(uri string, trackIndex int, xtream bool) (string, er
 	return newURL.String(), nil
 }
 
-func downloadSegments(segments []string) []string {
+func downloadSegments(mappings []*SegmentMapping) {
 	var wg sync.WaitGroup
-	ch := make(chan string, len(segments))
+	ch := make(chan *SegmentMapping, len(mappings))
 
-	for _, segment := range segments {
+	for _, mapping := range mappings {
 		wg.Add(1)
-		go downloadSegment(segment, &wg, ch)
+		go downloadSegment(mapping, &wg, ch)
 	}
 
 	go func() {
@@ -209,20 +214,22 @@ func downloadSegments(segments []string) []string {
 		close(ch)
 	}()
 
-	var result []string
-	for filename := range ch {
-		result = append(result, filename)
+	for downloadedMapping := range ch {
+		for _, mapping := range mappings {
+			if mapping.OriginalURI == downloadedMapping.OriginalURI {
+				mapping.DownloadedURI = downloadedMapping.DownloadedURI
+				break
+			}
+		}
 	}
-
-	return result
 }
 
-func downloadSegment(url string, wg *sync.WaitGroup, ch chan<- string) {
+func downloadSegment(mapping *SegmentMapping, wg *sync.WaitGroup, ch chan<- *SegmentMapping) {
 	defer wg.Done()
 
-	resp, err := http.Get(url)
+	resp, err := http.Get(mapping.OriginalURI)
 	if err != nil {
-		log.Printf("Ошибка при скачивании %s: %v", url, err)
+		log.Printf("Ошибка при скачивании %s: %v", mapping.OriginalURI, err)
 		return
 	}
 	defer func(Body io.ReadCloser) {
@@ -234,7 +241,7 @@ func downloadSegment(url string, wg *sync.WaitGroup, ch chan<- string) {
 		_ = os.Mkdir("hlsdownloads", 0755)
 	}
 
-	filename := filepath.Join(downloadDir, cleanFilename(url))
+	filename := filepath.Join(downloadDir, cleanFilename(mapping.OriginalURI))
 	file, err := os.Create(filename)
 	if err != nil {
 		log.Printf("Ошибка при создании файла %s: %v", filename, err)
@@ -251,7 +258,8 @@ func downloadSegment(url string, wg *sync.WaitGroup, ch chan<- string) {
 		return
 	}
 
-	ch <- filename
+	mapping.DownloadedURI = "/" + filename
+	ch <- mapping
 }
 
 func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType) *m3u8.MediaPlaylist {
@@ -259,30 +267,18 @@ func downloadSegmentsFromPlaylist(p *m3u8.MediaPlaylist, listType m3u8.ListType)
 		log.Println("Поддерживается только тип списка MEDIA")
 		return p
 	}
-	type SegmentMapping struct {
-		OriginalURI   string
-		DownloadedURI string
-	}
 
-	// Сначала создадим список оригинальных URI и инициализируем список соответствий
-	var segments []string
-	var mappings []SegmentMapping
+	// Создаем список структур SegmentMapping для каждого сегмента
+	var mappings []*SegmentMapping
 	for _, seg := range p.Segments {
 		if seg != nil {
-			segments = append(segments, seg.URI)
-			mappings = append(mappings, SegmentMapping{OriginalURI: seg.URI})
+			mappings = append(mappings, &SegmentMapping{OriginalURI: seg.URI})
 		}
 	}
 
 	// Загружаем сегменты
-	downloadedSegments := downloadSegments(segments)
+	downloadSegments(mappings)
 
-	// Обновляем список соответствий с загруженными URI
-	for i, downloadedURI := range downloadedSegments {
-		mappings[i].DownloadedURI = "/" + downloadedURI
-	}
-
-	// Теперь обновляем URI в p.Segments на основе списка соответствий
 	for _, seg := range p.Segments {
 		for _, mapping := range mappings {
 			if seg != nil && seg.URI == mapping.OriginalURI {
