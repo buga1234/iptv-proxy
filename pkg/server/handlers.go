@@ -23,7 +23,7 @@ import (
 	_ "embed"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/grafov/m3u8"
+	"github.com/riltech/streamer"
 	"io"
 	"log"
 	"net/http"
@@ -113,37 +113,25 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		return
 	}
 	fullURL := rpURL.Scheme + "://" + rpURL.Host + rpURL.Path
+	stream, id := streamer.NewStream(
+		fullURL,          // URI of raw RTSP stream
+		"./hlsdownloads", // Directory where to store video chunks and indexes. Should exist already
+		false,            // Indicates if stream should be keeping files after it is stopped or clean the directory
+		true,             // Indicates if Audio should be enabled or not
+		streamer.ProcessLoggingOpts{
+			Enabled:    true,               // Indicates if process logging is enabled
+			Compress:   true,               // Indicates if logs should be compressed
+			Directory:  "/tmp/logs/stream", // Directory to store logs
+			MaxAge:     0,                  // Max age for a log. 0 is infinite
+			MaxBackups: 2,                  // Maximum backups to keep
+			MaxSize:    500,                // Maximum size of a log in megabytes
+		},
+		25*time.Second, // Time to wait before declaring a stream start failed
+	)
 
-	// Загрузите оригинальный плейлист
-	resp, err := http.Get(fullURL)
-	if err != nil {
-		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-		return
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-		return
-	}
-
-	p, listType, err := m3u8.DecodeFrom(bytes.NewReader(body), true)
-	if err != nil {
-		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-		return
-	}
-
-	if mediaPlaylist, ok := p.(*m3u8.MediaPlaylist); ok {
-		mediaList := downloadSegmentsFromPlaylist(mediaPlaylist, listType)
-		modifiedPlaylist := mediaList.Encode().Bytes()
-		// Отправьте новый плейлист пользователю
-		ctx.Data(http.StatusOK, "application/vnd.apple.mpegurl", modifiedPlaylist)
-	} else {
-		log.Println("Ошибка: плейлист не является медиа-плейлистом")
-	}
+	// Returns a waitGroup where the stream checking the underlying process for a successful start
+	stream.Start().Wait()
+	fmt.Println(fullURL)
 
 }
 
