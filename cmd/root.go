@@ -31,7 +31,7 @@ import (
 
 	"github.com/romaxa55/iptv-proxy/pkg/server"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

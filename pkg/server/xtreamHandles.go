@@ -42,12 +42,12 @@ type cacheMeta struct {
 	time.Time
 }
 
-var hlsChannelsRedirectURL map[string]url.URL = map[string]url.URL{}
+var hlsChannelsRedirectURL = map[string]url.URL{}
 var hlsChannelsRedirectURLLock = sync.RWMutex{}
 
 // XXX Use key/value storage e.g: etcd, redis...
 // and remove that dirty globals
-var xtreamM3uCache map[string]cacheMeta = map[string]cacheMeta{}
+var xtreamM3uCache = map[string]cacheMeta{}
 var xtreamM3uCacheLock = sync.RWMutex{}
 
 func (c *Config) cacheXtreamM3u(playlist *m3u.Playlist, cacheName string) error {
