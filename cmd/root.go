@@ -217,7 +217,7 @@ func housekeeper() {
 		})
 
 		if err != nil {
-			// Обработка ошибки, например, запись в лог
+			log.Println("Failed:", err)
 		}
 	}
 }
