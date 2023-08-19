@@ -19,6 +19,7 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	_ "embed"
 	"fmt"
@@ -29,43 +30,27 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 //go:embed fake.ts
 var fakeTS []byte
+var (
+	currentProcess   *FFmpegProcess
+	lastRequestTimer *time.Timer
+	timerMutex       sync.Mutex
+)
 
-type FFmpegParams struct {
-	CRF          string
-	BitrateVideo string
-	BitrateAudio string
-	Preset       string
-	Scale        string
-	Threads      string
-	Tune         string
+type FFmpegProcess struct {
+	Cmd      *exec.Cmd
+	LastPath string
 }
-
-//func NewFFmpegParams() *FFmpegParams {
-//	return &FFmpegParams{
-//		CRF:          getEnv("CRF", "32"),
-//		BitrateVideo: getEnv("BITRATE_VIDEO", "1024k"),
-//		BitrateAudio: getEnv("BITRATE_AUDIO", "128k"),
-//		Preset:       getEnv("PRESET", "ultrafast"),
-//		Scale:        getEnv("SCALE", "1024:720"),
-//		Threads:      getEnv("THREADS", strconv.Itoa(runtime.NumCPU())),
-//		Tune:         getEnv("TUNE", "zerolatency"),
-//	}
-//}
-//
-//func getEnv(key, defaultValue string) string {
-//	value := os.Getenv(key)
-//	if value == "" {
-//		return defaultValue
-//	}
-//	return value
-//}
 
 func (c *Config) getM3U(ctx *gin.Context) {
 	ctx.Header("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, c.M3UFileName))
@@ -84,14 +69,11 @@ func (c *Config) reverseProxy(ctx *gin.Context) {
 	c.stream(ctx, rpURL)
 }
 func (c *Config) tsHandler(ctx *gin.Context) {
-	filename := ctx.Param("filename")
-	if !strings.HasSuffix(filename, ".ts") {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
+	log.Println("tsHandler called")
+	streamID := ctx.Param("streamID")
+	tsID := ctx.Param("tsID")
 	// Путь к каталогу hlsdownloads
-	filePath := "hlsdownloads/" + filename
+	filePath := fmt.Sprintf("hlsdownloads/%s/stream/%s", tsID, streamID)
 
 	// Проверка существования файла
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -105,7 +87,21 @@ func (c *Config) tsHandler(ctx *gin.Context) {
 }
 
 func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
+	timerMutex.Lock()
+	if lastRequestTimer != nil {
+		lastRequestTimer.Stop()
+	}
+	lastRequestTimer = time.AfterFunc(1*time.Minute, func() {
+		if currentProcess != nil {
+			currentProcess.Cmd.Process.Kill()
+			currentProcess.Cmd.Process.Wait()
+			removeDirectoryFromPath(currentProcess.LastPath)
+			currentProcess = nil
+		}
+	})
+	timerMutex.Unlock()
 	id := ctx.Param("id")
+	var idStream string
 
 	rpURL, err := url.Parse(strings.ReplaceAll(c.track.URI, path.Base(c.track.URI), id))
 	if err != nil {
@@ -113,38 +109,132 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		return
 	}
 	fullURL := rpURL.Scheme + "://" + rpURL.Host + rpURL.Path
-
-	// Загрузите оригинальный плейлист
-	resp, err := http.Get(fullURL)
-	if err != nil {
-		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-		return
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-		return
+	parts := strings.Split(rpURL.Path, "/")
+	if len(parts) > 2 {
+		idStream = parts[len(parts)-2] // предпоследний элемент
+	} else {
+		idStream = "0"
 	}
 
-	p, listType, err := m3u8.DecodeFrom(bytes.NewReader(body), true)
-	if err != nil {
-		_ = ctx.AbortWithError(http.StatusInternalServerError, err) // nolint: errcheck
-		return
+	// Создание каталога, если он не существует
+	dirPath := fmt.Sprintf("hlsdownloads/%s/stream", idStream)
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		err = os.MkdirAll(dirPath, 0755)
+		if err != nil {
+			// Обработка ошибки
+			log.Fatal(err)
+		}
 	}
 
-	if mediaPlaylist, ok := p.(*m3u8.MediaPlaylist); ok {
-		mediaList := downloadSegmentsFromPlaylist(mediaPlaylist, listType)
+	outputPath := fmt.Sprintf("%s/stream.m3u8", dirPath)
+
+	if currentProcess != nil {
+		if currentProcess.LastPath == rpURL.Path {
+			// Если путь не изменился, просто отдаем файл
+			ModifyAndSendPlaylist(ctx, outputPath)
+			return
+		} else {
+			// Если путь изменился, завершаем текущий процесс
+			if err := currentProcess.Cmd.Process.Kill(); err != nil {
+				// Обработка ошибки, например, запись в лог
+				log.Println("Failed to kill process:", err)
+			}
+			if _, err := currentProcess.Cmd.Process.Wait(); err != nil {
+				// Обработка ошибки, например, запись в лог
+				log.Println("Failed to wait for process:", err)
+			}
+
+			removeDirectoryFromPath(currentProcess.LastPath)
+			currentProcess = nil
+		}
+	}
+
+	// Запуск ffmpeg для трансляции
+	cmd := exec.Command("ffmpeg", "-i", fullURL,
+		"-c:v", "libx265", "-crf", "28", // кодек h265 и CRF для управления качеством
+		"-c:a", "aac", "-b:a", "128k", // кодек аудио и битрейт
+		"-hls_time", "10",
+		"-hls_list_size", "5",
+		"-hls_segment_type", "mpegts",
+		"-hls_segment_filename", dirPath+"/data%02d.ts", // Сегменты сохраняются в папке stream
+		"-hls_flags", "independent_segments+delete_segments",
+		outputPath)
+	err = cmd.Start()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	maxAttempts := 60
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// Проверка существования файла
+		if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+			// Если файла нет и это не последняя попытка, ждем и пробуем снова
+			if attempt < maxAttempts {
+				time.Sleep(1 * time.Second)
+				continue
+			}
+		} else {
+			// Если файл существует, выходим из цикла
+			break
+		}
+	}
+	// Сохраняем информацию о текущем процессе
+	currentProcess = &FFmpegProcess{
+		Cmd:      cmd,
+		LastPath: rpURL.Path,
+	}
+	ModifyAndSendPlaylist(ctx, outputPath)
+}
+
+func removeDirectoryFromPath(path string) {
+	// Регулярное выражение для извлечения числа из строки
+	re := regexp.MustCompile(`/(\d+)/`)
+	matches := re.FindStringSubmatch(path)
+
+	if len(matches) > 1 {
+		id := matches[1]
+		dirPath := "hlsdownloads/" + id
+
+		// Удаление каталога
+		if err := os.RemoveAll(dirPath); err != nil {
+			// Обработка ошибки, например, запись в лог
+			log.Println("Failed to remove directory:", err)
+		}
+	}
+}
+
+func ModifyAndSendPlaylist(ctx *gin.Context, outputPath string) {
+	// Откройте файл для чтения
+	file, err := os.Open(outputPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	// Декодируйте содержимое файла
+	p, listType, err := m3u8.DecodeFrom(bufio.NewReader(file), true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if listType == m3u8.MEDIA {
+		mediaList := p.(*m3u8.MediaPlaylist)
+
+		// Добавьте префикс "stream/" к URI каждого сегмента
+		for _, segment := range mediaList.Segments {
+			if segment != nil {
+				segment.URI = "/" + filepath.Dir(outputPath) + "/" + segment.URI
+
+			}
+		}
+
+		// Генерируйте новый плейлист
 		modifiedPlaylist := mediaList.Encode().Bytes()
+
 		// Отправьте новый плейлист пользователю
 		ctx.Data(http.StatusOK, "application/vnd.apple.mpegurl", modifiedPlaylist)
-	} else {
-		log.Println("Ошибка: плейлист не является медиа-плейлистом")
 	}
-
 }
 
 func (c *Config) stream(ctx *gin.Context, oriURL *url.URL) {

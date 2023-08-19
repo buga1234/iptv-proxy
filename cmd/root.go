@@ -24,7 +24,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -176,34 +175,49 @@ func initConfig() {
 }
 
 func housekeeper() {
-	ticker := time.NewTicker(time.Minute) // Предположим, что вы хотите проверять каждую минуту
+	ticker := time.NewTicker(time.Minute) // Проверка каждую минуту
 	defer ticker.Stop()
 
 	for range ticker.C {
 		dir := "hlsdownloads/"
 
-		files, err := os.ReadDir(dir)
-		if err != nil {
-			// Обработка ошибки, например, запись в лог
-			continue
-		}
-
-		sort.Slice(files, func(i, j int) bool {
-			ti, _ := files[i].Info()
-			tj, _ := files[j].Info()
-			return ti.ModTime().Before(tj.ModTime())
-		})
-
-		for _, f := range files {
-			fileInfo, err := f.Info()
+		// Функция для рекурсивного обхода файлов
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				// Обработка ошибки, например, запись в лог
-				continue
+				return nil
 			}
 
-			if time.Since(fileInfo.ModTime()) > 5*time.Minute {
-				_ = os.Remove(filepath.Join(dir, f.Name()))
+			if info.IsDir() {
+				entries, err := os.ReadDir(path)
+				if err != nil {
+					// Обработка ошибки, например, запись в лог
+					log.Println("Failed to read directory:", err)
+					return nil
+				}
+
+				// Фильтрация скрытых файлов
+				visibleEntries := 0
+				for _, entry := range entries {
+					if !strings.HasPrefix(entry.Name(), ".") {
+						visibleEntries++
+					}
+				}
+
+				if visibleEntries == 0 && time.Since(info.ModTime()) > 5*time.Minute {
+					if err := os.RemoveAll(path); err != nil {
+						// Обработка ошибки, например, запись в лог
+						log.Println("Failed to remove empty directory:", err)
+					}
+				}
+			} else if (filepath.Ext(path) == ".ts" || filepath.Ext(path) == ".m3u8") && time.Since(info.ModTime()) > 5*time.Minute {
+				_ = os.Remove(path)
 			}
+			return nil
+		})
+
+		if err != nil {
+			// Обработка ошибки, например, запись в лог
 		}
 	}
 }

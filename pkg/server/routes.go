@@ -28,7 +28,6 @@ import (
 
 func (c *Config) routes(r *gin.RouterGroup) {
 	r = r.Group(c.CustomEndpoint)
-
 	//Xtream service endopoints
 	if c.ProxyConfig.XtreamBaseURL != "" {
 		c.xtreamRoutes(r)
@@ -44,9 +43,8 @@ func (c *Config) routes(r *gin.RouterGroup) {
 			return
 		}
 	}
-	// Добавление маршрута для .ts файлов
-	r.GET("/hlsdownloads/:filename", c.tsHandler)
 
+	r.GET("/hlsdownloads/:tsID/stream/:streamID", c.tsHandler)
 	c.m3uRoutes(r)
 
 }
