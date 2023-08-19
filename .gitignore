@@ -25,3 +25,4 @@ iptv/iptv.m3u
 go.work
 
 /vendor/
+/hlsdownloads/
