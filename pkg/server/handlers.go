@@ -93,8 +93,11 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	}
 	lastRequestTimer = time.AfterFunc(1*time.Minute, func() {
 		if currentProcess != nil {
-			currentProcess.Cmd.Process.Kill()
-			currentProcess.Cmd.Process.Wait()
+			err := currentProcess.Cmd.Process.Kill()
+			if err != nil {
+				return
+			}
+			_, _ = currentProcess.Cmd.Process.Wait()
 			removeDirectoryFromPath(currentProcess.LastPath)
 			currentProcess = nil
 		}
@@ -210,7 +213,9 @@ func ModifyAndSendPlaylist(ctx *gin.Context, outputPath string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		_ = file.Close()
+	}(file)
 
 	// Декодируйте содержимое файла
 	p, listType, err := m3u8.DecodeFrom(bufio.NewReader(file), true)
