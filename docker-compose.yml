@@ -17,7 +17,7 @@ services:
       PASSWORD: ${PASSWORD:-password}
       BITRATE_VIDEO: 1024k
       BITRATE_AUDIO: 128k
-      SCALE: -1:720
+      SCALE: -1:360
       CRF: 26
       PRESET: ultrafast
       HLS_TIME: 10
