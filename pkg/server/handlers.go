@@ -186,6 +186,12 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	if hlsListSize == "" {
 		hlsListSize = "5" // значение по умолчанию
 	}
+	fmt.Println("CRF:", crf)
+	fmt.Println("SCALE:", scale)
+	fmt.Println("BITRATE_VIDEO:", bitrateVideo)
+	fmt.Println("BITRATE_AUDIO:", bitrateAudio)
+	fmt.Println("HLS_TIME:", hlsTime)
+	fmt.Println("HLS_LIST_SIZE:", hlsListSize)
 	// Запуск ffmpeg для трансляции
 	cmd := exec.Command("ffmpeg", "-i", fullURL,
 		"-c:v", "libx265", "-preset", preset, "-tune", "zerolatency", "-crf", crf,
