@@ -20,8 +20,8 @@ services:
       SCALE: -1:720
       CRF: 40
       PRESET: ultrafast
-      HLS_TIME: 10
-      HLS_LIST_SIZE: 5
+      HLS_TIME: 30
+      HLS_LIST_SIZE: 20
     networks: [public]
     labels:
       - traefik.enable=true
