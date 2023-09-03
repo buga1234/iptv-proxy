@@ -15,7 +15,7 @@ services:
     environment:
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
-      BITRATE_VIDEO: 1024k
+      BITRATE_VIDEO: 512k
       BITRATE_AUDIO: 128k
       SCALE: -1:720
       CRF: 40
