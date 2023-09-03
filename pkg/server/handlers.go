@@ -151,15 +151,49 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 			currentProcess = nil
 		}
 	}
+	// Считываем переменные окружения
+	bitrateVideo := os.Getenv("BITRATE_VIDEO")
+	if bitrateVideo == "" {
+		bitrateVideo = "600k" // значение по умолчанию
+	}
 
+	bitrateAudio := os.Getenv("BITRATE_AUDIO")
+	if bitrateAudio == "" {
+		bitrateAudio = "128k" // значение по умолчанию
+	}
+
+	scale := os.Getenv("SCALE")
+	if scale == "" {
+		scale = "-1:480" // значение по умолчанию
+	}
+
+	crf := os.Getenv("CRF")
+	if crf == "" {
+		crf = "36" // значение по умолчанию
+	}
+
+	preset := os.Getenv("PRESET")
+	if preset == "" {
+		preset = "ultrafast" // значение по умолчанию
+	}
+
+	hlsTime := os.Getenv("HLS_TIME")
+	if hlsTime == "" {
+		hlsTime = "10" // значение по умолчанию
+	}
+
+	hlsListSize := os.Getenv("HLS_LIST_SIZE")
+	if hlsListSize == "" {
+		hlsListSize = "5" // значение по умолчанию
+	}
 	// Запуск ffmpeg для трансляции
-	cmd := exec.Command("ffmpeg", "-hwaccel", "auto", "-i", fullURL,
-		"-c:v", "libx265", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "36", // кодек h265 и CRF для управления качеством
-		"-vf", "scale=-1:480", // изменение размера видео
-		"-b:v", "600k", // битрейт видео
-		"-c:a", "aac", "-b:a", "128k", // кодек аудио и битрейт
-		"-hls_time", "10",
-		"-hls_list_size", "5",
+	cmd := exec.Command("ffmpeg", "-i", fullURL,
+		"-c:v", "libx265", "-preset", preset, "-tune", "zerolatency", "-crf", crf,
+		"-vf", "scale="+scale,
+		"-b:v", bitrateVideo,
+		"-c:a", "aac", "-b:a", bitrateAudio,
+		"-hls_time", hlsTime,
+		"-hls_list_size", hlsListSize,
 		"-hls_segment_type", "mpegts",
 		"-hls_segment_filename", dirPath+"/data%02d.ts", // Сегменты сохраняются в папке stream
 		"-hls_flags", "independent_segments+delete_segments",

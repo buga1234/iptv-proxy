@@ -163,6 +163,13 @@ Or
       XTREAM_BASE_URL: "http://example.com:1234"
       USER: test
       PASSWORD: testpassword
+      BITRATE_VIDEO: 600k
+      BITRATE_AUDIO: 128k
+      SCALE: -1:480
+      CRF: 36
+      PRESET: ultrafast
+      HLS_TIME: 10
+      HLS_LIST_SIZE: 5
 ```
 
 ### Start
