@@ -15,11 +15,11 @@ services:
     environment:
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
-      BITRATE_VIDEO: 700k
+      BITRATE_VIDEO: 1024k
       BITRATE_AUDIO: 128k
       SCALE: -1:480
-      CRF: 28
-      PRESET: fast
+      CRF: 20
+      PRESET: ultrafast
       HLS_TIME: 10
       HLS_LIST_SIZE: 5
     networks: [public]
