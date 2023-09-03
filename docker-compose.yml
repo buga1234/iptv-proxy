@@ -18,8 +18,8 @@ services:
       BITRATE_VIDEO: 1024k
       BITRATE_AUDIO: 128k
       SCALE: -1:720
-      CRF: 18
-      PRESET: fast
+      CRF: 26
+      PRESET: ultrafast
       HLS_TIME: 10
       HLS_LIST_SIZE: 5
     networks: [public]
