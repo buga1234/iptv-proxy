@@ -153,10 +153,10 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	}
 
 	// Запуск ffmpeg для трансляции
-	cmd := exec.Command("ffmpeg", "-i", fullURL,
-		"-c:v", "libx265", "-crf", "36", // кодек h265 и CRF для управления качеством
+	cmd := exec.Command("ffmpeg", "-hwaccel", "auto", "-i", fullURL,
+		"-c:v", "libx265", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "36", // кодек h265 и CRF для управления качеством
 		"-vf", "scale=-1:480", // изменение размера видео
-		"-b:v", "900k", // битрейт видео
+		"-b:v", "600k", // битрейт видео
 		"-c:a", "aac", "-b:a", "128k", // кодек аудио и битрейт
 		"-hls_time", "10",
 		"-hls_list_size", "5",
