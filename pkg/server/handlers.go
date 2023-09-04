@@ -156,7 +156,9 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	p, listType, err := m3u8.DecodeFrom(bufio.NewReader(resp.Body), true)
 	if err != nil {
