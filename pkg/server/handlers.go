@@ -151,6 +151,32 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 			currentProcess = nil
 		}
 	}
+
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	p, listType, err := m3u8.DecodeFrom(bufio.NewReader(resp.Body), true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var hlsTime, hlsListSize string
+
+	if listType == m3u8.MEDIA {
+		mediaList := p.(*m3u8.MediaPlaylist)
+		hlsTime = fmt.Sprintf("%.0f", mediaList.TargetDuration)
+		var count int
+		for _, segment := range mediaList.Segments {
+			if segment != nil {
+				count++
+			}
+		}
+		hlsListSize = fmt.Sprintf("%d", count)
+	}
+
 	// Считываем переменные окружения
 	bitrateVideo := os.Getenv("BITRATE_VIDEO")
 	if bitrateVideo == "" {
@@ -164,12 +190,12 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 
 	scale := os.Getenv("SCALE")
 	if scale == "" {
-		scale = "-1:480" // значение по умолчанию
+		scale = "1280:720" // значение по умолчанию
 	}
 
 	crf := os.Getenv("CRF")
 	if crf == "" {
-		crf = "36" // значение по умолчанию
+		crf = "32" // значение по умолчанию
 	}
 
 	preset := os.Getenv("PRESET")
@@ -177,15 +203,6 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		preset = "ultrafast" // значение по умолчанию
 	}
 
-	hlsTime := os.Getenv("HLS_TIME")
-	if hlsTime == "" {
-		hlsTime = "10" // значение по умолчанию
-	}
-
-	hlsListSize := os.Getenv("HLS_LIST_SIZE")
-	if hlsListSize == "" {
-		hlsListSize = "5" // значение по умолчанию
-	}
 	fmt.Println("CRF:", crf)
 	fmt.Println("SCALE:", scale)
 	fmt.Println("BITRATE_VIDEO:", bitrateVideo)
@@ -204,8 +221,10 @@ func (c *Config) m3u8ReverseProxy(ctx *gin.Context) {
 		"-hls_segment_filename", dirPath+"/data%02d.ts", // Сегменты сохраняются в папке stream
 		"-hls_flags", "independent_segments+delete_segments",
 		outputPath)
-	err = cmd.Start()
+	cmd.Stdout = os.Stdout // Перенаправляем стандартный вывод
+	cmd.Stderr = os.Stderr // Перенаправляем стандартный вывод ошибок
 
+	err = cmd.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
