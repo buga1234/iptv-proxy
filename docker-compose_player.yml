@@ -1,0 +1,25 @@
+version: "3"
+services:
+  iptv-player:
+    image: 4gray/iptvnator-backend
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+    volumes:
+      - ./iptv:/root/iptv
+    container_name: iptv-proxy
+    restart: on-failure
+    environment:
+      CLIENT_URL: http://localhost:4333
+    networks: [ public ]
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.iptv-player.tls=true
+      - traefik.http.routers.iptv-player.rule=Host(`iptv.roshamagin.site`)
+      - traefik.http.routers.iptv-player.entrypoints=websecure
+      - traefik.http.routers.iptv-player.tls.certresolver=myresolver
+      - traefik.http.services.iptv-player.loadbalancer.server.port=3000
+
+networks:
+  public:
+    external: true
