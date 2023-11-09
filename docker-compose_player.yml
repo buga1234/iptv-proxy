@@ -9,6 +9,7 @@ services:
     restart: on-failure
     environment:
       CLIENT_URL: https://iptv.roshamagin.site
+      PORT: 3000
     networks: [ public ]
     labels:
       - traefik.enable=true
