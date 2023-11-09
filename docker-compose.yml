@@ -20,15 +20,3 @@ services:
       SCALE: 640:480
       CRF: 26
       PRESET: ultrafast
-    networks: [public]
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.iptv-proxy.tls=true
-      - traefik.http.routers.iptv-proxy.rule=Host(`iptv.roshamagin.site`)
-      - traefik.http.routers.iptv-proxy.entrypoints=websecure
-      - traefik.http.routers.iptv-proxy.tls.certresolver=myresolver
-      - traefik.http.services.iptv-proxy.loadbalancer.server.port=8080
-
-networks:
-  public:
-     external: true
