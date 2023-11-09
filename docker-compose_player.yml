@@ -10,7 +10,7 @@ services:
     container_name: iptv-player
     restart: on-failure
     environment:
-      CLIENT_URL: http://localhost:4333
+      CLIENT_URL: https://iptv.roshamagin.site
     networks: [ public ]
     labels:
       - traefik.enable=true
