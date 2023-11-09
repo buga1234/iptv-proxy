@@ -1,19 +1,8 @@
 version: "3"
 services:
   tvheadend:
-    image: lscr.io/linuxserver/tvheadend:latest
+    image: 4gray/iptvnator:latest
     container_name: tvheadend
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-      - RUN_OPTS= #optional
-    volumes:
-      - /path/to/data:/config
-      - /path/to/recordings:/recordings
-    ports:
-      - 9981:9981
-      - 9982:9982
     restart: unless-stopped
     labels:
       - traefik.enable=true
