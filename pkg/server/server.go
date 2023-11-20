@@ -136,7 +136,7 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 			log.Printf("ERROR: track: %s: %s", track.Name, err)
 			continue
 		}
-		_, _ = into.WriteString(fmt.Sprintf("%s, %s\n#EXTGRP:%s\n%s\n", buffer.String(), track.Name, track.Group, uri)) // nolint: errcheck
+		_, _ = into.WriteString(fmt.Sprintf("%s, %s\n%s\n%s\n", buffer.String(), track.Name, track.Group, uri)) // nolint: errcheck
 
 		filteredTrack = append(filteredTrack, track)
 	}

@@ -170,6 +170,10 @@ func Parse(fileName string) (Playlist, error) {
 				}
 			}
 			playlist.VariantStreams = append(playlist.VariantStreams, *stream)
+		} else if strings.HasPrefix(line, "#EXTGRP") {
+			line := strings.Replace(line, "#EXTINF:", "", -1)
+			playlist.Tracks[len(playlist.Tracks)-1].Group = strings.Trim(line, " ")
+
 		} else if strings.HasPrefix(line, "#") || line == "" {
 			continue
 		} else if len(playlist.Tracks) == 0 && len(playlist.VariantStreams) == 0 {
