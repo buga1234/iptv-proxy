@@ -4,7 +4,6 @@ require (
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jamesnetherton/m3u v0.4.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/spf13/cobra v1.8.0
