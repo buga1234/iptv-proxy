@@ -203,20 +203,20 @@ func Marshall(p Playlist) (io.Reader, error) {
 
 // MarshallInto a *bufio.Writer a Playlist.
 func MarshallInto(p Playlist, into *bufio.Writer) error {
-	into.WriteString("#EXTM3U\n")
+	_, _ = into.WriteString("#EXTM3U\n")
 	for _, track := range p.Tracks {
-		into.WriteString("#EXTINF:")
-		into.WriteString(fmt.Sprintf("%d ", track.Length))
+		_, _ = into.WriteString("#EXTINF:")
+		_, _ = into.WriteString(fmt.Sprintf("%d ", track.Length))
 		for i := range track.Tags {
 			if i == len(track.Tags)-1 {
-				into.WriteString(fmt.Sprintf("%s=%q", track.Tags[i].Name, track.Tags[i].Value))
+				_, _ = into.WriteString(fmt.Sprintf("%s=%q", track.Tags[i].Name, track.Tags[i].Value))
 				continue
 			}
-			into.WriteString(fmt.Sprintf("%s=%q ", track.Tags[i].Name, track.Tags[i].Value))
+			_, _ = into.WriteString(fmt.Sprintf("%s=%q ", track.Tags[i].Name, track.Tags[i].Value))
 		}
-		into.WriteString(", ")
+		_, _ = into.WriteString(", ")
 
-		into.WriteString(fmt.Sprintf("%s\n%s\n", track.Name, track.URI))
+		_, _ = into.WriteString(fmt.Sprintf("%s\n%s\n", track.Name, track.URI))
 	}
 
 	return into.Flush()
