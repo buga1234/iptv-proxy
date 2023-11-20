@@ -111,10 +111,11 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 	filteredTrack := make([]m3u.Track, 0, len(c.playlist.Tracks))
 	ret := 0
 	_, _ = into.WriteString("#EXTM3U\n") // nolint: errcheck
-	re := regexp.MustCompile(`FHD|\+|orig`)
+	re := regexp.MustCompile(`FHD|\+|orig| 4K`)
 
 	for i, track := range c.playlist.Tracks {
 		if re.MatchString(track.Name) {
+			ret++
 			continue
 		}
 		var buffer bytes.Buffer
