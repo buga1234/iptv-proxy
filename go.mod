@@ -10,6 +10,7 @@ require (
 	github.com/spf13/viper v1.17.0
 	github.com/tellytv/go.xtream-codes v0.0.0-20220204001149-59925bc76764
 )
+replace github.com/jamesnetherton/m3u => ./m3u
 
 require (
 	github.com/bytedance/sonic v1.10.2 // indirect
@@ -22,7 +23,9 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.16.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/grafov/m3u8 v0.12.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/jamesnetherton/m3u v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect

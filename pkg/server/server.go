@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/romaxa55/iptv-proxy/m3u"
+	"github.com/jamesnetherton/m3u"
 	"github.com/romaxa55/iptv-proxy/pkg/config"
 	uuid "github.com/satori/go.uuid"
 	"log"
@@ -31,6 +31,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -108,14 +109,19 @@ func (c *Config) playlistInitialization() error {
 // MarshallInto a *bufio.Writer a Playlist.
 func (c *Config) marshallInto(into *os.File, xtream bool) error {
 	filteredTrack := make([]m3u.Track, 0, len(c.playlist.Tracks))
-
 	ret := 0
 	_, _ = into.WriteString("#EXTM3U\n") // nolint: errcheck
+	re := regexp.MustCompile(`FHD|\+|orig`)
+
 	for i, track := range c.playlist.Tracks {
+		if re.MatchString(track.Name) {
+			continue
+		}
 		var buffer bytes.Buffer
 
 		buffer.WriteString("#EXTINF:")                       // nolint: errcheck
 		buffer.WriteString(fmt.Sprintf("%d ", track.Length)) // nolint: errcheck
+
 		for i := range track.Tags {
 			if i == len(track.Tags)-1 {
 				buffer.WriteString(fmt.Sprintf("%s=%q", track.Tags[i].Name, track.Tags[i].Value)) // nolint: errcheck
@@ -130,8 +136,7 @@ func (c *Config) marshallInto(into *os.File, xtream bool) error {
 			log.Printf("ERROR: track: %s: %s", track.Name, err)
 			continue
 		}
-
-		_, _ = into.WriteString(fmt.Sprintf("%s, %s\n%s\n", buffer.String(), track.Name, uri)) // nolint: errcheck
+		_, _ = into.WriteString(fmt.Sprintf("%s, %s\n#EXTGRP:%s\n%s\n", buffer.String(), track.Name, track.Group, uri)) // nolint: errcheck
 
 		filteredTrack = append(filteredTrack, track)
 	}
