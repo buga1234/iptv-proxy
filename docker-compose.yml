@@ -1,7 +1,7 @@
 version: "3"
 services:
   iptv-proxy:
-    image: ghcr.io/buga1234/iptv-proxy/iptv-proxy:latest
+    image: ghcr.io/buga1234/iptv-proxy:0.0.1
 #     build:
 #       context: .
 #       dockerfile: Dockerfile
@@ -11,7 +11,7 @@ services:
     restart: on-failure
     env_file: .env
     ports:
-      - 8080:8080
+      - 82:82
     environment:
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
