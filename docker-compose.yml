@@ -15,8 +15,8 @@ services:
     environment:
       USER: ${USER_NAME:-test}
       PASSWORD: ${PASSWORD:-password}
-      BITRATE_VIDEO: 512k
+      BITRATE_VIDEO: ${BITRATE_VIDEO:-512k}
       BITRATE_AUDIO: 128k
-      SCALE: 640:480
+      SCALE: ${SCALE:-640:480}
       CRF: 33
       PRESET: ultrafast
