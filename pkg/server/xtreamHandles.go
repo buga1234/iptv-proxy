@@ -31,9 +31,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buga1234/iptv-proxy/pkg/m3u"
+	xtreamapi "github.com/buga1234/iptv-proxy/pkg/xtream-proxy"
 	"github.com/gin-gonic/gin"
-	"github.com/romaxa55/iptv-proxy/pkg/m3u"
-	xtreamapi "github.com/romaxa55/iptv-proxy/pkg/xtream-proxy"
 	uuid "github.com/satori/go.uuid"
 )
 

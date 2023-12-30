@@ -1,4 +1,4 @@
-module github.com/romaxa55/iptv-proxy
+module github.com/buga1234/iptv-proxy
 
 require (
 	github.com/gin-contrib/cors v1.4.0

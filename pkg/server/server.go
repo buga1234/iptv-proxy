@@ -21,10 +21,10 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"github.com/buga1234/iptv-proxy/pkg/config"
+	"github.com/buga1234/iptv-proxy/pkg/m3u"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/romaxa55/iptv-proxy/pkg/config"
-	"github.com/romaxa55/iptv-proxy/pkg/m3u"
 	uuid "github.com/satori/go.uuid"
 	"log"
 	"net/url"

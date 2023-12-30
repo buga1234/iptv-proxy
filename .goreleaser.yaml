@@ -25,14 +25,14 @@ archives:
 
 release:
   github:
-    owner: romaxa55
+    owner: buga1234
     name: iptv-proxy
   draft: false
 
 nfpms:
   -
    vendor: Pierre-Emmanuel Jacquier
-   homepage: https://github.com/romaxa55/iptv-proxy
+   homepage: https://github.com/buga1234/iptv-proxy
    maintainer: Pierre-Emmanuel <pierre-emmanuel.jacquier@epitech.eu>
    description: Reverse proxy on iptv m3u file
    license: Apache 2.0
@@ -42,14 +42,14 @@ nfpms:
 
 dockers:
   - image_templates:
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:{{ .Tag }}-arm64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}-arm64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-arm64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:latest-arm64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:{{ .Tag }}-arm64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}-arm64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-arm64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:latest-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:{{ .Tag }}-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:latest-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:{{ .Tag }}-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-arm64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:latest-arm64"
     use: buildx
     goos: linux
     goarch: arm64
@@ -65,22 +65,22 @@ dockers:
     dockerfile: .Dockerfile.goreleaser
 
   - image_templates:
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:{{ .Tag }}-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:latest-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:{{ .Tag }}"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:latest"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:{{ .Tag }}-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:latest-amd64"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:{{ .Tag }}"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}"
-    - "ghcr.io/romaxa55/iptv-proxy/iptv-proxy:latest"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:{{ .Tag }}-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:latest-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:{{ .Tag }}"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:latest"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:{{ .Tag }}-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:latest-amd64"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:{{ .Tag }}"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:v{{ .Major }}.{{ .Minor }}"
+    - "ghcr.io/buga1234/iptv-proxy/iptv-proxy:latest"
     use: buildx
     goos: linux
     goarch: amd64

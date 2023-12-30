@@ -27,11 +27,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/romaxa55/iptv-proxy/pkg/config"
+	"github.com/buga1234/iptv-proxy/pkg/config"
 
-	"github.com/romaxa55/iptv-proxy/pkg/server"
+	"github.com/buga1234/iptv-proxy/pkg/server"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
